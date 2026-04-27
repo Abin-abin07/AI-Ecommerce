@@ -14,10 +14,14 @@ export const mapAiLabelToCatalogTags = (labels) => {
     'bracelet': ['jewelry', 'accessories'],
     'metal': ['jewelry', 'tunnels', 'gauges', 'steel'],
     'gold': ['jewelry', 'rose gold', 'accessories'],
+    'rose gold': ['jewelry', 'tunnels', 'gauges', 'accessories'],
+    'metallic': ['jewelry', 'tunnels', 'gauges'],
+    'eyelet': ['jewelry', 'tunnels', 'gauges'],
     
     // Tunnels & Gauges specific
     'circular': ['tunnels', 'gauges', 'jewelry'],
     'hole': ['tunnels', 'gauges'],
+    'tunnel': ['tunnels', 'gauges', 'jewelry'],
     
     // Electronics & Storage fixes
     'clothing': ['apparel', 'fashion'],

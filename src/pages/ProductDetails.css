@@ -84,6 +84,16 @@
   margin-bottom: 1.5rem;
 }
 
+.detail-rating.clickable {
+  cursor: pointer;
+  width: fit-content;
+  transition: opacity 0.2s ease;
+}
+
+.detail-rating.clickable:hover {
+  opacity: 0.8;
+}
+
 .rating-score {
   font-weight: 600;
   color: var(--text-primary);
@@ -137,6 +147,22 @@
 
 .action-buttons {
   margin-top: auto;
+  display: flex;
+  gap: 1rem;
+}
+
+.add-btn {
+  flex: 1;
+}
+
+.buy-btn {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .action-buttons {
+    flex-direction: column;
+  }
 }
 
 /* Skeletons */
@@ -162,6 +188,20 @@
 .skeleton-line.title { height: 40px; width: 80%; }
 .skeleton-line.price { height: 30px; width: 30%; }
 .skeleton-line.desc { height: 16px; width: 100%; }
+
+.skeleton-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.skeleton-btn {
+  flex: 1;
+  height: 50px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  animation: pulse 1.5s infinite;
+}
 
 @media (max-width: 992px) {
   .product-details-content {

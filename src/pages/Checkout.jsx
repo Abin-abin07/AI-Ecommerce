@@ -22,6 +22,8 @@ const Checkout = () => {
     cvv: ''
   });
   
+  const [errors, setErrors] = useState({});
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
@@ -34,13 +36,143 @@ const Checkout = () => {
     return null;
   }
 
+  const validateField = (name, value) => {
+    let error = '';
+    
+    switch (name) {
+      case 'firstName':
+      case 'lastName':
+        if (!/^[a-zA-Z]*$/.test(value)) {
+          error = 'Names can only contain letters.';
+        }
+        break;
+      case 'city':
+        if (!/^[a-zA-Z\s]*$/.test(value)) {
+          error = 'City name must be text only.';
+        }
+        break;
+      case 'zipCode':
+        if (!/^\d*$/.test(value)) {
+          error = 'Zipcode must contain only numbers.';
+        } else if (value.length > 6) {
+          error = 'Zipcode must be 5 or 6 digits';
+        }
+        break;
+      case 'cardNumber':
+        if (!/^\d*$/.test(value)) {
+          error = 'Card number must be 16 digits (numbers only).';
+        } else if (value.length > 16) {
+          error = 'Card number must be 16 digits';
+        }
+        break;
+      case 'cvv':
+        if (!/^\d*$/.test(value)) {
+          error = 'CVV must be a 3-digit number.';
+        } else if (value.length > 3) {
+          error = 'CVV must be 3 digits';
+        }
+        break;
+      case 'expiry':
+        if (!/^[\d/]*$/.test(value)) {
+          error = 'Please enter numbers in MM/YY format.';
+        }
+        break;
+      default:
+        break;
+    }
+    
+    return error;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Check for invalid characters before filtering
+    const fieldError = validateField(name, value);
+    if (fieldError) {
+      setErrors(prev => ({ ...prev, [name]: fieldError }));
+    } else if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+
+    // Immediate validation for input restrictions
+    let newValue = value;
+    
+    if (name === 'firstName' || name === 'lastName') {
+      newValue = value.replace(/[^a-zA-Z]/g, '');
+    } else if (name === 'city') {
+      newValue = value.replace(/[^a-zA-Z\s]/g, '');
+    } else if (name === 'zipCode' || name === 'cardNumber' || name === 'cvv') {
+      newValue = value.replace(/\D/g, '');
+      if (name === 'zipCode') newValue = newValue.slice(0, 6);
+      if (name === 'cardNumber') newValue = newValue.slice(0, 16);
+      if (name === 'cvv') newValue = newValue.slice(0, 3);
+    } else if (name === 'expiry') {
+      newValue = value.replace(/[^\d/]/g, '').slice(0, 5);
+      // Auto-format MM/YY
+      if (newValue.length === 2 && !newValue.includes('/') && value.length > formData.expiry.length) {
+        newValue = newValue + '/';
+      }
+    }
+
+    setFormData(prev => ({ ...prev, [name]: newValue }));
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    // Name validation
+    if (!formData.firstName.trim()) newErrors.firstName = 'Required';
+    else if (!/^[a-zA-Z]+$/.test(formData.firstName)) newErrors.firstName = 'Names can only contain letters.';
+    
+    if (!formData.lastName.trim()) newErrors.lastName = 'Required';
+    else if (!/^[a-zA-Z]+$/.test(formData.lastName)) newErrors.lastName = 'Names can only contain letters.';
+    
+    // City validation
+    if (!formData.city.trim()) newErrors.city = 'Required';
+    else if (!/^[a-zA-Z\s]+$/.test(formData.city)) newErrors.city = 'City name must be text only.';
+    
+    // Zipcode validation
+    if (!formData.zipCode) newErrors.zipCode = 'Required';
+    else if (!/^\d{5,6}$/.test(formData.zipCode)) newErrors.zipCode = 'Zipcode must contain only numbers.';
+    
+    // Card Number validation
+    if (!formData.cardNumber) newErrors.cardNumber = 'Required';
+    else if (!/^\d{16}$/.test(formData.cardNumber)) newErrors.cardNumber = 'Card number must be 16 digits (numbers only).';
+    
+    // CVV validation
+    if (!formData.cvv) newErrors.cvv = 'Required';
+    else if (!/^\d{3}$/.test(formData.cvv)) newErrors.cvv = 'CVV must be a 3-digit number.';
+    
+    // Expiry Date validation
+    if (!formData.expiry) {
+      newErrors.expiry = 'Required';
+    } else if (!/^\d{2}\/\d{2}$/.test(formData.expiry)) {
+      newErrors.expiry = 'Please enter numbers in MM/YY format.';
+    } else {
+      const [month, year] = formData.expiry.split('/').map(Number);
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = parseInt(now.getFullYear().toString().slice(-2));
+      
+      if (month < 1 || month > 12) {
+        newErrors.expiry = 'Invalid month';
+      } else if (year < currentYear || (year === currentYear && month < currentMonth)) {
+        newErrors.expiry = 'Card has expired.';
+      }
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setIsSubmitting(true);
     
     // Simulate API call for checkout
@@ -91,11 +223,29 @@ const Checkout = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="firstName">First Name</label>
-                    <input type="text" id="firstName" name="firstName" className="input" required value={formData.firstName} onChange={handleChange} />
+                    <input 
+                      type="text" 
+                      id="firstName" 
+                      name="firstName" 
+                      className={`input ${errors.firstName ? 'invalid' : ''}`} 
+                      required 
+                      value={formData.firstName} 
+                      onChange={handleChange} 
+                    />
+                    {errors.firstName && <span className="error-text">{errors.firstName}</span>}
                   </div>
                   <div className="form-group">
                     <label htmlFor="lastName">Last Name</label>
-                    <input type="text" id="lastName" name="lastName" className="input" required value={formData.lastName} onChange={handleChange} />
+                    <input 
+                      type="text" 
+                      id="lastName" 
+                      name="lastName" 
+                      className={`input ${errors.lastName ? 'invalid' : ''}`} 
+                      required 
+                      value={formData.lastName} 
+                      onChange={handleChange} 
+                    />
+                    {errors.lastName && <span className="error-text">{errors.lastName}</span>}
                   </div>
                 </div>
                 <div className="form-group">
@@ -113,11 +263,30 @@ const Checkout = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="city">City</label>
-                    <input type="text" id="city" name="city" className="input" required value={formData.city} onChange={handleChange} />
+                    <input 
+                      type="text" 
+                      id="city" 
+                      name="city" 
+                      className={`input ${errors.city ? 'invalid' : ''}`} 
+                      required 
+                      value={formData.city} 
+                      onChange={handleChange} 
+                    />
+                    {errors.city && <span className="error-text">{errors.city}</span>}
                   </div>
                   <div className="form-group">
                     <label htmlFor="zipCode">Zip Code</label>
-                    <input type="text" id="zipCode" name="zipCode" className="input" required value={formData.zipCode} onChange={handleChange} />
+                    <input 
+                      type="text" 
+                      id="zipCode" 
+                      name="zipCode" 
+                      className={`input ${errors.zipCode ? 'invalid' : ''}`} 
+                      required 
+                      placeholder="00000"
+                      value={formData.zipCode} 
+                      onChange={handleChange} 
+                    />
+                    {errors.zipCode && <span className="error-text">{errors.zipCode}</span>}
                   </div>
                 </div>
               </div>
@@ -127,16 +296,46 @@ const Checkout = () => {
                 <p className="mock-payment-warning">Simulation only - Do not enter real credit card info.</p>
                 <div className="form-group">
                   <label htmlFor="cardNumber">Card Number</label>
-                  <input type="text" id="cardNumber" name="cardNumber" className="input" required placeholder="0000 0000 0000 0000" value={formData.cardNumber} onChange={handleChange} />
+                  <input 
+                    type="text" 
+                    id="cardNumber" 
+                    name="cardNumber" 
+                    className={`input ${errors.cardNumber ? 'invalid' : ''}`} 
+                    required 
+                    placeholder="0000 0000 0000 0000" 
+                    value={formData.cardNumber} 
+                    onChange={handleChange} 
+                  />
+                  {errors.cardNumber && <span className="error-text">{errors.cardNumber}</span>}
                 </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="expiry">Expiry Date</label>
-                    <input type="text" id="expiry" name="expiry" className="input" required placeholder="MM/YY" value={formData.expiry} onChange={handleChange} />
+                    <input 
+                      type="text" 
+                      id="expiry" 
+                      name="expiry" 
+                      className={`input ${errors.expiry ? 'invalid' : ''}`} 
+                      required 
+                      placeholder="MM/YY" 
+                      value={formData.expiry} 
+                      onChange={handleChange} 
+                    />
+                    {errors.expiry && <span className="error-text">{errors.expiry}</span>}
                   </div>
                   <div className="form-group">
                     <label htmlFor="cvv">CVV</label>
-                    <input type="text" id="cvv" name="cvv" className="input" required placeholder="123" value={formData.cvv} onChange={handleChange} />
+                    <input 
+                      type="text" 
+                      id="cvv" 
+                      name="cvv" 
+                      className={`input ${errors.cvv ? 'invalid' : ''}`} 
+                      required 
+                      placeholder="123" 
+                      value={formData.cvv} 
+                      onChange={handleChange} 
+                    />
+                    {errors.cvv && <span className="error-text">{errors.cvv}</span>}
                   </div>
                 </div>
               </div>

@@ -5,6 +5,8 @@ import { fetchProductById } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useUserActivity } from '../context/UserActivityContext';
 import Navbar from '../components/Navbar';
+import ProductReviews from '../components/ProductReviews';
+import { generateMockReviews } from '../utils/mockData';
 import './ProductDetails.css';
 
 const ProductDetails = () => {
@@ -15,6 +17,13 @@ const ProductDetails = () => {
   
   const { addToCart } = useCart();
   const { trackProductView } = useUserActivity();
+  
+  const [reviews, setReviews] = useState([]);
+  const reviewsRef = React.useRef(null);
+
+  const scrollToReviews = () => {
+    reviewsRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -24,6 +33,7 @@ const ProductDetails = () => {
         if (data) {
           setProduct(data);
           trackProductView(data);
+          setReviews(generateMockReviews(data.id, data.category));
         }
       } catch (error) {
         console.error("Error loading product", error);
@@ -45,7 +55,10 @@ const ProductDetails = () => {
             <div className="skeleton-line title"></div>
             <div className="skeleton-line price"></div>
             <div className="skeleton-line desc"></div>
-            <div className="skeleton-line desc"></div>
+            <div className="skeleton-actions">
+              <div className="skeleton-btn"></div>
+              <div className="skeleton-btn"></div>
+            </div>
           </div>
         </div>
       </>
@@ -81,10 +94,10 @@ const ProductDetails = () => {
             <div className="category-badge">{product.category}</div>
             <h1 className="detail-title">{product.title}</h1>
             
-            <div className="detail-rating">
+            <div className="detail-rating clickable" onClick={scrollToReviews}>
               <Star size={18} fill="#fbbf24" color="#fbbf24" />
               <span className="rating-score">{product.rating?.rate || 4.5}</span>
-              <span className="rating-count">({product.rating?.count || 0} reviews)</span>
+              <span className="rating-count">({product.rating?.count || 400} reviews)</span>
             </div>
             
             <div className="detail-price">${product.price.toFixed(2)}</div>
@@ -104,13 +117,26 @@ const ProductDetails = () => {
             
             <div className="action-buttons">
               <button 
-                className="btn btn-primary btn-large add-btn"
+                className="btn btn-secondary btn-large add-btn"
                 onClick={() => addToCart(product)}
               >
                 <ShoppingCart size={20} /> Add to Cart
               </button>
+              <button 
+                className="btn btn-primary btn-large buy-btn"
+                onClick={() => {
+                  addToCart(product);
+                  navigate('/checkout');
+                }}
+              >
+                Buy Now
+              </button>
             </div>
           </div>
+        </div>
+
+        <div ref={reviewsRef}>
+          <ProductReviews reviews={reviews} />
         </div>
       </div>
     </>

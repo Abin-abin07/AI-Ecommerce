@@ -8,6 +8,7 @@ import ProductCard from '../components/ProductCard';
 import ImageSearchModal from '../components/ImageSearchModal';
 import Navbar from '../components/Navbar';
 import { Sparkles, Loader2 } from 'lucide-react';
+import { ProductSkeleton } from '../components/Skeleton';
 import { 
   setSearchTerms, 
   setFilteredProducts, 
@@ -17,16 +18,7 @@ import {
 } from '../store/searchSlice';
 import './Home.css';
 
-const ProductSkeleton = () => (
-  <div className="product-card skeleton">
-    <div className="skeleton-image-box"></div>
-    <div className="skeleton-info">
-      <div className="skeleton-line short"></div>
-      <div className="skeleton-line medium"></div>
-      <div className="skeleton-line long"></div>
-    </div>
-  </div>
-);
+
 
 const Home = () => {
   const dispatch = useDispatch();
@@ -123,7 +115,7 @@ const Home = () => {
     return (
       <div className="loading-container">
         <Loader2 size={48} className="spinner" />
-        <p>Loading AI Store...</p>
+        <p>Loading Nexis...</p>
       </div>
     );
   }

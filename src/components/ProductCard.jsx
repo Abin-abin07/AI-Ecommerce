@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart, Star } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useUserActivity } from '../context/UserActivityContext';
+import { handleImageError } from '../utils/imageUtils';
 import './ProductCard.css';
 
 const ProductCard = ({ product }) => {
@@ -21,7 +22,13 @@ const ProductCard = ({ product }) => {
       onClick={() => trackProductView(product)}
     >
       <div className="product-image-container">
-        <img src={product.image} alt={product.title} className="product-image" loading="lazy" />
+        <img 
+          src={product.image} 
+          alt={product.title} 
+          className="product-image" 
+          loading="lazy" 
+          onError={handleImageError}
+        />
       </div>
       <div className="product-content">
         <div className="product-category">{product.category}</div>

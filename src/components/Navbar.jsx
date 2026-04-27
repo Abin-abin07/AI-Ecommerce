@@ -28,8 +28,8 @@ const Navbar = ({ onOpenImageSearch, onTextSearch }) => {
   return (
     <nav className="navbar glass">
       <div className="container navbar-container">
-        <Link to="/" className="navbar-logo">
-          <span className="logo-ai">AI</span>Shop
+        <Link to="/" className="navbar-logo" aria-label="Nexis Logo">
+          Nexis
         </Link>
 
         <div className="navbar-search">

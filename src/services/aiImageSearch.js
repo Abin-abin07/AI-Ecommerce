@@ -113,8 +113,8 @@ export const extractSearchTerms = (predictions) => {
     console.log("OCR terms extracted:", Array.from(rawTerms));
   }
 
-  const CONFIDENCE_THRESHOLD = 0.8; 
-  let highConfidenceFound = rawTerms.size > 0; // If OCR found text, we consider it high confidence
+  const CONFIDENCE_THRESHOLD = 0.85; 
+  let highConfidenceFound = rawTerms.size > 0; 
   
   // 2. Process COCO-SSD detections (Priority for specific objects)
   detection.forEach(d => {
@@ -124,12 +124,19 @@ export const extractSearchTerms = (predictions) => {
     if (d.score >= CONFIDENCE_THRESHOLD) {
       highConfidenceFound = true;
       rawTerms.add(d.class.toLowerCase());
+      
+      // Specific check for metal bar structures (often classified as 'tie' or 'stick' by general models)
+      if (d.class.toLowerCase() === 'tie' || d.class.toLowerCase() === 'umbrella') {
+        if (aspectRatio > 2.0) {
+          rawTerms.add('pull up bar');
+          rawTerms.add('fitness');
+        }
+      }
     }
   });
   
   // 3. Process MobileNet classifications
   classification.forEach(p => {
-    // Ignore 'person' or 'human' classifications
     if (p.className.toLowerCase().includes('person') || p.className.toLowerCase().includes('human')) return;
 
     if (p.probability >= CONFIDENCE_THRESHOLD) {
@@ -139,51 +146,66 @@ export const extractSearchTerms = (predictions) => {
     }
   });
 
-  // Heuristic: Shape check for Hardware vs Mobile
+  // CRITICAL FIX: Hardware vs Mobile Misidentification
   // External hard drives are often boxy (1.0 - 1.5 aspect ratio)
   if (aspectRatio > 0.8 && aspectRatio < 1.6) {
-    const phoneLabels = ['cellular telephone', 'mobile phone', 'hand-held computer'];
+    const phoneLabels = ['cellular telephone', 'mobile phone', 'hand-held computer', 'iphone'];
     const mobilePrediction = classification.find(p => 
       phoneLabels.some(label => p.className.toLowerCase().includes(label))
     );
     
-    // If it's boxy and either NO phone was found OR phone has low confidence (< 60%)
-    if (!mobilePrediction || mobilePrediction.probability < 0.6) {
-      console.log("Shape suggests hardware/storage despite potential mobile prediction. Prioritizing Hardware.");
-      rawTerms.add('hard drive');
-      rawTerms.add('storage');
-      rawTerms.add('external');
+    // If it's boxy and either NO phone was found OR phone has low confidence (< 85%)
+    // Scan OCR results for "WD", "External", "SSD", "HDD", "Passport"
+    const hasHardwareKeywords = Array.from(rawTerms).some(t => 
+      ['wd', 'external', 'ssd', 'hdd', 'passport', 'storage', 'hard'].includes(t.toLowerCase())
+    );
+
+    if (hasHardwareKeywords || (mobilePrediction && mobilePrediction.probability < CONFIDENCE_THRESHOLD)) {
+      console.log("Shape suggests hardware/storage. Prioritizing Hardware category over Mobile.");
       rawTerms.add('hardware');
+      rawTerms.add('external storage');
+      rawTerms.add('hard drive');
+      
+      // If confidence is very low, we want to return the whole category
+      if (!mobilePrediction || mobilePrediction.probability < 0.5) {
+        rawTerms.add('electronics');
+      }
     }
   }
 
-  // Heuristic: Shape check for Fitness Equipment
+  // CRITICAL FIX: Pull-up Bar vs Medicine Ball
   // Pull up bars are very wide (high aspect ratio)
   if (aspectRatio > 2.0) {
     rawTerms.add('pull up bar');
+    rawTerms.add('gym');
+    rawTerms.add('fitness');
     rawTerms.add('strength');
   } else if (aspectRatio > 0.8 && aspectRatio < 1.2) {
-    const genericFitness = ['gym', 'fitness', 'sport', 'exercise'];
-    const isFitness = classification.some(p => 
+    const genericFitness = ['gym', 'fitness', 'sport', 'exercise', 'medicine ball', 'barbell'];
+    const fitnessPrediction = classification.find(p => 
       genericFitness.some(label => p.className.toLowerCase().includes(label))
     );
-    if (isFitness) {
-      rawTerms.add('medicine ball');
-      rawTerms.add('dumbbell');
+    
+    if (fitnessPrediction) {
+      if (fitnessPrediction.probability < CONFIDENCE_THRESHOLD) {
+        // Low confidence fitness - suggest the whole category
+        rawTerms.add('fitness');
+        rawTerms.add('gym equipment');
+      } else {
+        const classes = fitnessPrediction.className.split(',').map(c => c.trim().toLowerCase());
+        classes.forEach(c => rawTerms.add(c));
+      }
     }
   }
   
-  // Fallback if still nothing
-  if (!highConfidenceFound && rawTerms.size === 0) {
-    const weakHints = classification.filter(p => p.probability > 0.3);
+  // Fallback if still nothing or confidence is low
+  if (!highConfidenceFound && rawTerms.size <= 2) {
+    const weakHints = classification.filter(p => p.probability > 0.2);
     if (weakHints.length > 0) {
       weakHints.forEach(h => {
         const classes = h.className.split(',').map(c => c.trim().toLowerCase());
         classes.forEach(c => rawTerms.add(c));
       });
-    } else {
-      rawTerms.add('jewelry');
-      rawTerms.add('accessories');
     }
   }
   
