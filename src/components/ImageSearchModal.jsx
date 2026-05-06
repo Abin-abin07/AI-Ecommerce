@@ -75,9 +75,9 @@ const ImageSearchModal = ({ isOpen, onClose, onSearch, onStartAnalysis }) => {
       const terms = extractSearchTerms(results);
       
       setTimeout(() => {
-        onSearch(terms);
+        onSearch(terms, results.features); // Reduced delay to boost visual search speed
         onClose();
-      }, 400); // Reduced delay to boost visual search speed
+      }, 400);
       
     } catch (error) {
       console.error("Analysis failed", error);

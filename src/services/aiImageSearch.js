@@ -3,6 +3,7 @@ import * as mobilenet from '@tensorflow-models/mobilenet';
 import * as cocossd from '@tensorflow-models/coco-ssd';
 import { createWorker } from 'tesseract.js';
 import { mapAiLabelToCatalogTags } from '../utils/labelMapper';
+import { handleModelHallucinations } from '../utils/aiHelpers';
 
 let mobilenetModel = null;
 let cocoSsdModel = null;
@@ -54,7 +55,13 @@ const preprocessImage = (imageElement) => {
   const sx = (imageElement.width - minDim) / 2;
   const sy = (imageElement.height - minDim) / 2;
   
+  // Apply a slight contrast enhancement
+  ctx.filter = 'contrast(1.2)';
+  
   ctx.drawImage(imageElement, sx, sy, minDim, minDim, 0, 0, 224, 224);
+  
+  // Reset filter just in case
+  ctx.filter = 'none';
   return canvas;
 };
 
@@ -70,18 +77,32 @@ export const classifyImage = async (imageElement) => {
     
     // Run all models in parallel: Classification, Object Detection, and OCR
     const [classification, detection, ocrResult] = await Promise.all([
-      mobilenetModel.classify(processedCanvas),
+      mobilenetModel.classify(processedCanvas, 5), // Increase topK to 5
       cocoSsdModel.detect(processedCanvas),
       tesseractWorker.recognize(imageElement) // OCR works best on original image
     ]);
+
+    // Feature Extraction: Extract embeddings from the uploaded image
+    let embedding = [];
+    try {
+      const embeddingTensor = mobilenetModel.infer(processedCanvas, true);
+      embedding = Array.from(embeddingTensor.dataSync());
+      embeddingTensor.dispose(); // Free up memory
+    } catch (e) {
+      console.warn("Could not extract embedding:", e);
+    }
     
+    // Top-level label extraction with hallucination handling
+    const topLabel = handleModelHallucinations(classification);
+
     const aspectRatio = imageElement.width / imageElement.height;
     
     return {
       classification,
       detection,
       ocrText: ocrResult.data.text,
-      aspectRatio
+      aspectRatio,
+      features: { embedding, topLabel }
     };
   } catch (error) {
     console.error("Error analyzing image:", error);

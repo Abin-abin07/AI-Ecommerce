@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProducts } from '../services/api';
 import { getRecommendations } from '../services/aiRecommendations';
-import { searchProductsByTerms } from '../services/aiImageSearch';
+
+import { useVision } from '../hooks/useVision';
 import { useUserActivity } from '../context/UserActivityContext';
 import ProductCard from '../components/ProductCard';
 import ImageSearchModal from '../components/ImageSearchModal';
@@ -22,12 +23,15 @@ import './Home.css';
 
 const Home = () => {
   const dispatch = useDispatch();
-  const { searchTerms, filteredProducts, isSearching, isAnalyzing } = useSelector((state) => state.search);
+  const { searchTerms, filteredProducts, isSearching: isSearchLoading, isAnalyzing } = useSelector((state) => state.search);
   
   const [products, setProducts] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isImageSearchOpen, setIsImageSearchOpen] = useState(false);
+  const [imageFeatures, setImageFeatures] = useState(null);
+  const [isSearching, setIsSearchingLocal] = useState(false); // Local state as requested
+  const [isImageSearchActive, setIsImageSearchActive] = useState(false);
   
   const { viewedCategories, viewedProducts } = useUserActivity();
 
@@ -51,65 +55,58 @@ const Home = () => {
     loadData();
   }, [dispatch]);
 
-  const handleImageSearch = (terms) => {
+  const handleImageSearch = (terms, features) => {
     dispatch(setIsSearching(true));
+    setIsImageSearchActive(true);
+    setImageFeatures(features);
+    setIsSearchingLocal(true); // Enable AI search results view
+    
     setTimeout(() => {
       dispatch(setSearchTerms(terms));
-      if (terms && terms.length > 0) {
-        const results = searchProductsByTerms(products, terms);
-        dispatch(setFilteredProducts(results));
-      } else {
-        dispatch(setFilteredProducts(products));
-      }
+      // useVision handles the filtering now
       dispatch(setIsSearching(false));
       dispatch(setIsAnalyzing(false));
     }, 600);
   };
 
   const handleTextSearch = (term) => {
+    setIsImageSearchActive(false);
+    setImageFeatures(null);
     if (!term || !term.trim()) {
       dispatch(clearSearch(products));
+      setIsSearchingLocal(false);
       return;
     }
     dispatch(setSearchTerms([term]));
-    const lowerTerm = term.toLowerCase();
-    const results = products.filter(product => {
-      const tagsString = product.tags ? product.tags.join(' ') : '';
-      return (product.title && product.title.toLowerCase().includes(lowerTerm)) || 
-             (product.description && product.description.toLowerCase().includes(lowerTerm)) ||
-             (product.category && product.category.toLowerCase().includes(lowerTerm)) ||
-             (tagsString.toLowerCase().includes(lowerTerm));
-    });
-    dispatch(setFilteredProducts(results));
+    setIsSearchingLocal(true);
+  };
+
+  const handleClearSearch = () => {
+    setIsImageSearchActive(false);
+    setImageFeatures(null);
+    setIsSearchingLocal(false);
+    dispatch(clearSearch(products));
   };
 
   /**
    * MEMOIZED FILTERING LOGIC:
-   * Ensures at least 5-6 products are shown.
-   * If exact matches are few, fills with related items (USB cables for hardware, etc.)
+   * Uses the new useVision hook to sort products by similarity score
+   * and always return the top 5 closest matches for image search.
    */
-  const displayedProducts = useMemo(() => {
-    if (searchTerms.length === 0) return filteredProducts;
-    
-    if (filteredProducts.length > 0) {
-      // If we have 5 or more, just show them
-      if (filteredProducts.length >= 5) return filteredProducts;
-      
-      // If fewer than 5, find related products in the same category
-      const mainCategory = filteredProducts[0].category;
-      
-      // Find related items that aren't already in filtered results
-      const relatedItems = products.filter(p => 
-        p.category === mainCategory && 
-        !filteredProducts.some(fp => fp.id === p.id)
-      );
-      
-      // Fill up to 6 products total
-      return [...filteredProducts, ...relatedItems].slice(0, 6);
+  const { results: displayedProducts, isPerfectMatch, aiDetectedLabel, needsCategoryReset } = useVision(
+    products, 
+    imageFeatures, 
+    searchTerms,
+    isImageSearchActive
+  );
+
+  // Sync displayedProducts back to redux if needed by other components, though Home uses displayedProducts directly
+  useEffect(() => {
+    if (displayedProducts !== filteredProducts && searchTerms.length > 0) {
+      dispatch(setFilteredProducts(displayedProducts));
     }
-    
-    return [];
-  }, [filteredProducts, products, searchTerms]);
+  }, [displayedProducts, dispatch, searchTerms, filteredProducts]);
+
 
   if (isLoading) {
     return (
@@ -128,17 +125,22 @@ const Home = () => {
       />
       
       <div className="container page home-page">
-        {searchTerms.length > 0 && (
+        {isSearching && (
           <div className="search-results-header glass">
             <div>
-              <h3>Search Results</h3>
-              <p>Found {filteredProducts.length} results matching: {searchTerms.join(', ')}</p>
+              <h3>AI Search Results</h3>
+              <p>Found {displayedProducts.length} results for: {isImageSearchActive && aiDetectedLabel ? aiDetectedLabel : searchTerms.join(', ')}</p>
+              {isImageSearchActive && aiDetectedLabel && (
+                <p style={{ marginTop: '0.5rem', fontWeight: 'bold', color: 'var(--accent)' }}>
+                  AI detected: {aiDetectedLabel.charAt(0).toUpperCase() + aiDetectedLabel.slice(1)}
+                </p>
+              )}
             </div>
-            <button className="btn btn-secondary" onClick={() => dispatch(clearSearch(products))}>Clear Search</button>
+            <button className="btn btn-secondary" onClick={handleClearSearch}>Clear Search</button>
           </div>
         )}
 
-        {searchTerms.length === 0 && recommendations.length > 0 && (
+        {!isSearching && recommendations.length > 0 && (
           <section className="recommendations-section">
             <div className="section-header">
               <Sparkles className="section-icon" size={24} />
@@ -153,9 +155,9 @@ const Home = () => {
         )}
 
         <section className="all-products-section">
-          <h2>{searchTerms.length > 0 ? 'Results for your search' : 'Explore All Products'}</h2>
+          <h2>{isSearching ? 'Results for your search' : 'Explore All Products'}</h2>
           
-          {(isSearching || isAnalyzing) ? (
+          {(isSearchLoading || isAnalyzing) ? (
             <div className="grid-products">
               {[...Array(6)].map((_, i) => (
                 <ProductSkeleton key={`skeleton-${i}`} />
@@ -174,14 +176,38 @@ const Home = () => {
                   </div>
                 </div>
               )}
-              <button className="btn btn-primary" onClick={() => dispatch(clearSearch(products))}>View All Products</button>
+              <button className="btn btn-primary" onClick={handleClearSearch}>View All Products</button>
             </div>
           ) : (
-            <div className="grid-products">
-              {displayedProducts.map(product => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <>
+              {isImageSearchActive && needsCategoryReset && (
+                <div className="similar-results-notice glass" style={{ width: '100%', marginBottom: '2rem', padding: '1rem', textAlign: 'center', borderRadius: '12px', borderLeft: '4px solid var(--error)' }}>
+                  <p style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-light)' }}>
+                    We couldn't find a perfect match. Are you looking for Headphones?
+                  </p>
+                </div>
+              )}
+              {isImageSearchActive && !isPerfectMatch && !needsCategoryReset && searchTerms.length > 0 && (
+                <div className="similar-results-notice glass" style={{ width: '100%', marginBottom: '2rem', padding: '1rem', textAlign: 'center', borderRadius: '12px', borderLeft: '4px solid var(--accent)' }}>
+                  <p style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-light)' }}>
+                    <Sparkles size={18} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle', color: 'var(--accent)' }} />
+                    Showing products similar to your upload
+                  </p>
+                </div>
+              )}
+              {displayedProducts.length > 0 ? (
+                <div className="grid-products">
+                  {displayedProducts.map(product => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state" style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+                  <h3 style={{ marginBottom: '1rem', color: 'var(--text-light)' }}>No matching products found</h3>
+                  <button className="btn btn-primary" onClick={handleClearSearch}>Search for something else</button>
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>

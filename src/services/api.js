@@ -1,4 +1,6 @@
 const BASE_URL = 'https://fakestoreapi.com';
+import { MOCK_PRODUCTS_EXTENDED, generateMockEmbedding } from '../utils/mockData';
+
 
 // Robust mock data with tags for AI Image Search and filtering
 const MOCK_PRODUCTS = [
@@ -330,21 +332,30 @@ const MOCK_PRODUCTS = [
 ];
 
 export const fetchProducts = async () => {
+  // Map embeddings to existing mock products
+  const enhancedMockProducts = MOCK_PRODUCTS.map(p => ({
+    ...p,
+    embedding: generateMockEmbedding(p.category)
+  }));
+  
+  const allMock = [...enhancedMockProducts, ...MOCK_PRODUCTS_EXTENDED];
+
   try {
     const response = await fetch(`${BASE_URL}/products`);
     if (!response.ok) throw new Error('Failed to fetch products');
     const data = await response.json();
     
-    // Ensure all products have a tags array
+    // Ensure all products have a tags array and embedding
     const normalizedData = data.map(p => ({
       ...p,
-      tags: p.tags || [p.category]
+      tags: p.tags || [p.category],
+      embedding: generateMockEmbedding(p.category)
     }));
 
-    return [...normalizedData, ...MOCK_PRODUCTS];
+    return [...normalizedData, ...allMock];
   } catch (error) {
     console.error("Error fetching products:", error);
-    return MOCK_PRODUCTS; // Fallback to mock data
+    return allMock; // Fallback to mock data
   }
 };
 
