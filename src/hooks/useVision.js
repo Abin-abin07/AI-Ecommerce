@@ -157,40 +157,40 @@ export const useVision = (products, imageFeatures, searchTerms, isImageSearchAct
       topMatches = scoredProducts.slice(0, 5);
     } else {
       // Similarity Thresholding / Soft Fallback
-      // If no product has a high similarity score, show the top 4 products from the same category as the AI label
-      if (topScore < 0.2 && aiLabel) {
-         // Try to map aiLabel to a broad category
-         const mappedCategory = isTechRelated ? 'electronics' : aiLabel;
+      // If no product has a high similarity score, show fallbacks from Electronics or Jewelry
+      if (topScore < 0.15 && aiLabel) {
+         // Fallback Strategy: Show 'Trending in Tech' (Electronics) or 'Jewelery'
+         const jewelryFallback = products.filter(p => p.category.toLowerCase().includes('jewelery'));
+         const electronicsFallback = products.filter(p => p.category.toLowerCase().includes('electronics'));
+
          
-         const fallbackProducts = products.filter(p => 
-           p.category.toLowerCase().includes(mappedCategory) || 
-           (p.tags && p.tags.some(t => t.toLowerCase().includes(mappedCategory)))
-         );
+         const combinedFallback = [...jewelryFallback, ...electronicsFallback];
          
-         if (fallbackProducts.length >= 4) {
-           topMatches = fallbackProducts.slice(0, 4).map(p => ({ product: p }));
+         if (combinedFallback.length > 0) {
+           // Shuffle and pick 4
+           topMatches = combinedFallback
+             .sort(() => 0.5 - Math.random())
+             .slice(0, 4)
+             .map(p => ({ product: p }));
          } else {
-           // Category Reset
-           needsCategoryReset = true;
-           const electronicsProducts = products.filter(p => p.category.toLowerCase().includes('electronics'));
-           if (electronicsProducts.length > 0) {
-             topMatches = electronicsProducts.slice(0, 4).map(p => ({ product: p }));
-           } else {
-             topMatches = scoredProducts.slice(0, 4);
-           }
+           topMatches = scoredProducts.slice(0, 4);
          }
+         needsCategoryReset = true; // Use this flag to trigger the UI message
       } else {
         // Always return the top 5 closest matches normally
         topMatches = scoredProducts.slice(0, 5);
       }
     }
 
+
     return {
       results: topMatches.map(m => m.product || m),
       isPerfectMatch,
       topScore,
       aiDetectedLabel: aiLabel,
-      needsCategoryReset
+      needsCategoryReset,
+      isFallbackActive: topMatches.length === 0 || (topScore < 0.1 && aiLabel)
     };
   }, [products, imageFeatures, searchTerms, isImageSearchActive]);
 };
+

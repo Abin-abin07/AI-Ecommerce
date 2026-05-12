@@ -181,9 +181,10 @@ const Home = () => {
           ) : (
             <>
               {isImageSearchActive && needsCategoryReset && (
-                <div className="similar-results-notice glass" style={{ width: '100%', marginBottom: '2rem', padding: '1rem', textAlign: 'center', borderRadius: '12px', borderLeft: '4px solid var(--error)' }}>
-                  <p style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-light)' }}>
-                    We couldn't find a perfect match. Are you looking for Headphones?
+                <div className="similar-results-notice glass" style={{ width: '100%', marginBottom: '2rem', padding: '1.5rem', textAlign: 'center', borderRadius: '16px', borderLeft: '4px solid var(--accent)' }}>
+                  <p style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-light)', lineHeight: '1.6' }}>
+                    <Sparkles size={20} style={{ display: 'inline', marginRight: '10px', verticalAlign: 'middle', color: 'var(--accent)' }} />
+                    We couldn't find an exact match for <strong>{aiDetectedLabel}</strong>. Here are some related products you might like!
                   </p>
                 </div>
               )}
@@ -195,6 +196,7 @@ const Home = () => {
                   </p>
                 </div>
               )}
+
               {displayedProducts.length > 0 ? (
                 <div className="grid-products">
                   {displayedProducts.map(product => (

@@ -34,7 +34,11 @@ const ProductDetails = () => {
           setProduct(data);
           trackProductView(data);
           setReviews(generateMockReviews(data.id, data.category));
+        } else {
+          // Log missing ID and check catalog if product is not found
+          console.log("Product not found in ProductDetails. ID:", id);
         }
+
       } catch (error) {
         console.error("Error loading product", error);
       } finally {
