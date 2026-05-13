@@ -1,12 +1,12 @@
-import placeholder from '../assets/placeholder.png';
 
 /**
  * Handles image loading errors by providing a fallback placeholder.
  * @param {Event} e - The error event from the img element
  */
 export const handleImageError = (e) => {
-  if (e.target.src !== placeholder) {
-    e.target.src = placeholder;
+  const placeholderUrl = 'https://placehold.co/600x400?text=Product+Image';
+  if (e.target.src !== placeholderUrl) {
+    e.target.src = placeholderUrl;
     e.target.className += ' is-placeholder';
   }
 };

@@ -6,7 +6,7 @@ import { useCart } from '../context/CartContext';
 import { useUserActivity } from '../context/UserActivityContext';
 import Navbar from '../components/Navbar';
 import ProductReviews from '../components/ProductReviews';
-import { generateMockReviews } from '../utils/mockData';
+import { generateMockReviews, MOCK_PRODUCTS } from '../utils/mockData';
 import './ProductDetails.css';
 
 const ProductDetails = () => {
@@ -29,16 +29,20 @@ const ProductDetails = () => {
     const loadProduct = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchProductById(id);
+        // Use type-safe lookup in local MOCK_PRODUCTS as requested
+        let data = MOCK_PRODUCTS.find(p => p.id === Number(id));
+        
+        if (!data) {
+          data = await fetchProductById(id);
+        }
+
         if (data) {
           setProduct(data);
           trackProductView(data);
           setReviews(generateMockReviews(data.id, data.category));
         } else {
-          // Log missing ID and check catalog if product is not found
-          console.log("Product not found in ProductDetails. ID:", id);
+          console.log("Product not found. ID:", id);
         }
-
       } catch (error) {
         console.error("Error loading product", error);
       } finally {

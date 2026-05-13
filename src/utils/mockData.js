@@ -112,7 +112,7 @@ export const MOCK_PRODUCTS = [
     rating: { rate: 4.8, count: 380 }, embedding: generateMockEmbedding('mobile')
   },
   {
-    id: 203, title: "Google Pixel 8 Pro", price: 899.00, description: "The all-pro phone engineered by Google. It's sleek, sophisticated and powerful.",
+    id: 211, title: "Google Pixel 8 Pro", price: 899.00, description: "The all-pro phone engineered by Google. It's sleek, sophisticated and powerful.",
     category: "mobile", tags: ["mobile", "smartphone", "android", "google", "pixel", "tech"],
     image: "https://images.unsplash.com/photo-1696446702183-cbd13d78e1e7?auto=format&fit=crop&q=80&w=800",
     rating: { rate: 4.7, count: 210 }, embedding: generateMockEmbedding('mobile')
@@ -338,7 +338,7 @@ export const MOCK_PRODUCTS = [
     rating: { rate: 4.8, count: 420 }, embedding: generateMockEmbedding('electronics')
   },
   {
-    id: 602, title: "AirPods Max", price: 549, description: "High-fidelity audio.",
+    id: 203, title: "AirPods Max", price: 549, description: "High-fidelity audio.",
     category: "electronics", tags: ["headphone", "audio", "electronics", "music", "apple", "wireless"],
     image: "https://images.unsplash.com/photo-1613040809024-b4ef7ba99bc3?auto=format&fit=crop&q=80&w=800",
     rating: { rate: 4.7, count: 310 }, embedding: generateMockEmbedding('electronics')
@@ -384,13 +384,13 @@ export const MOCK_PRODUCTS = [
   {
     id: 704, title: "Silver Stud Earrings", price: 45.00, description: "Simple sterling silver stud earrings.",
     category: "jewelery", tags: ["jewelery", "earrings", "silver", "accessory"],
-    image: "https://images.unsplash.com/photo-1535633302703-b0703af6c392?auto=format&fit=crop&q=80&w=800",
+    image: "https://images.unsplash.com/photo-1617038220319-276d3cfab638?auto=format&fit=crop&q=80&w=800",
     rating: { rate: 4.6, count: 230 }, embedding: generateMockEmbedding('jewelery')
   },
   {
     id: 705, title: "Sapphire Pendant", price: 599.00, description: "Deep blue sapphire pendant with silver chain.",
     category: "jewelery", tags: ["jewelery", "pendant", "necklace", "sapphire", "accessory"],
-    image: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&q=80&w=800",
+    image: "https://images.unsplash.com/photo-1599643478117-5cb153968d9f?auto=format&fit=crop&q=80&w=800",
     rating: { rate: 4.8, count: 42 }, embedding: generateMockEmbedding('jewelery')
   }
 ];

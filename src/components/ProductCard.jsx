@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart, Star } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useUserActivity } from '../context/UserActivityContext';
-import { handleImageError } from '../utils/imageUtils';
+
 import './ProductCard.css';
 
 const ProductCard = ({ product }) => {
@@ -23,11 +23,11 @@ const ProductCard = ({ product }) => {
     >
       <div className="product-image-container">
         <img 
-          src={product.image} 
+          src={product.image.includes('placeholder') ? 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800' : product.image} 
           alt={product.title} 
           className="product-image" 
           loading="lazy" 
-          onError={handleImageError}
+          onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800'; }}
         />
       </div>
       <div className="product-content">

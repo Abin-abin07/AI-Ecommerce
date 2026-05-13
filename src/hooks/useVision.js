@@ -66,10 +66,16 @@ export const useVision = (products, imageFeatures, searchTerms, isImageSearchAct
       return { results: products, isPerfectMatch: true, aiDetectedLabel: null };
     }
 
-    const aiLabel = imageFeatures?.topLabel || '';
+    let aiLabel = imageFeatures?.topLabel || '';
+    
+    // AI Label Cleanup: If face powder is detected but jewelry was intended, remap to jewelry
+    if (aiLabel.toLowerCase().includes('face powder')) {
+      aiLabel = 'jewelery';
+    }
+
     const isHeadphone = aiLabel === 'headphone' || aiLabel === 'headphones';
-    const isTechRelated = ['electronic', 'audio', 'computer', 'laptop', 'headphone', 'tech', 'device', 'hardware'].some(t => aiLabel.includes(t));
-    const isComputerDetected = ['computer', 'laptop', 'macbook', 'desktop'].some(t => aiLabel.includes(t));
+    const isTechRelated = ['electronic', 'audio', 'computer', 'laptop', 'headphone', 'tech', 'device', 'hardware'].some(t => aiLabel.includes(t.toLowerCase()));
+    const isComputerDetected = ['computer', 'laptop', 'macbook', 'desktop'].some(t => aiLabel.includes(t.toLowerCase()));
 
     // Hard Filter: Strict filter for headphones, else general tech filter
     let eligibleProducts = products;
