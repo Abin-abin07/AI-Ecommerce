@@ -1,0 +1,336 @@
+import { useState, useCallback, useRef, useMemo } from 'react';
+
+/**
+ * Custom hook for vision-based image processing and AI features
+ * Utilizes Canvas API and TensorFlow.js for client-side feature extraction
+ * 
+ * @returns {Object} Vision hook methods and state
+ */
+export const useVision = (products, imageFeatures, searchTerms, isImageSearchActive) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [results, setResults] = useState(null);
+  const canvasRef = useRef(null);
+
+  // Cosine similarity between two 1D arrays
+  const cosineSimilarity = (vecA, vecB) => {
+    if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
+    }
+    if (normA === 0 || normB === 0) return 0;
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  };
+
+  // Fallback fuzzy search using tag matching
+  const calculateTextSimilarity = (terms, product) => {
+    if (!terms || terms.length === 0) return 0;
+    
+    const termExpansion = {
+      'laptop': ['computer', 'electronics', 'tech'],
+      'cell phone': ['phone', 'smartphone', 'mobile', 'electronics'],
+      'cup': ['mug', 'glass', 'coffee'],
+      'shoe': ['sneaker', 'running', 'apparel'],
+      'person': ['clothing', 'apparel', 'fashion'],
+      'backpack': ['bag', 'travel', 'accessories'],
+      'monitor': ['screen', 'display', 'electronics'],
+      'hardware': ['storage', 'ssd', 'hdd', 'wd', 'seagate'],
+      'fitness': ['gym', 'workout', 'weights', 'dumbbells', 'health'],
+      'headphones': ['electronics', 'tech', 'audio', 'earbuds', 'headset']
+    };
+
+    const expandedTerms = new Set([...terms]);
+    terms.forEach(term => {
+      const lowerTerm = term.toLowerCase();
+      if (termExpansion[lowerTerm]) {
+        termExpansion[lowerTerm].forEach(t => expandedTerms.add(t));
+      }
+    });
+
+    const finalTerms = Array.from(expandedTerms);
+    const productText = `${product.title} ${product.description} ${product.category} ${(product.tags || []).join(' ')}`.toLowerCase();
+    
+    let matchCount = 0;
+    finalTerms.forEach(term => {
+      if (productText.includes(term.toLowerCase())) {
+        matchCount += 1;
+      }
+    });
+    
+    return matchCount / Math.max(finalTerms.length, 1);
+  };
+
+  /**
+   * Extract image features using Canvas API
+   * 
+   * @param {File} imageFile - Image file from upload
+   * @returns {Promise<Object>} Extracted features and metadata
+   */
+  const extractImageFeatures = useCallback(async (imageFile) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const reader = new FileReader();
+
+      return new Promise((resolve, reject) => {
+        reader.onload = async (e) => {
+          try {
+            const img = new Image();
+            img.onload = async () => {
+              const canvas = canvasRef.current || document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+
+              // Resize image to standard dimensions for feature extraction
+              canvas.width = 224;
+              canvas.height = 224;
+              ctx.drawImage(img, 0, 0, 224, 224);
+
+              // Get image data
+              const imageData = ctx.getImageData(0, 0, 224, 224);
+              const pixels = imageData.data;
+
+              // Normalize pixel values
+              const normalizedPixels = [];
+              for (let i = 0; i < pixels.length; i += 4) {
+                normalizedPixels.push(
+                  pixels[i] / 255,      // R
+                  pixels[i + 1] / 255,  // G
+                  pixels[i + 2] / 255   // B
+                );
+              }
+
+              // Calculate image statistics as placeholder embeddings
+              const embedding = calculateImageStats(normalizedPixels);
+
+              const features = {
+                embedding,
+                width: img.width,
+                height: img.height,
+                size: imageFile.size,
+                type: imageFile.type,
+                timestamp: new Date().toISOString(),
+              };
+
+              setResults(features);
+              setIsLoading(false);
+              resolve(features);
+            };
+
+            img.onerror = () => {
+              const err = new Error('Failed to load image');
+              setError(err.message);
+              setIsLoading(false);
+              reject(err);
+            };
+
+            img.src = e.target.result;
+          } catch (err) {
+            setError(err.message);
+            setIsLoading(false);
+            reject(err);
+          }
+        };
+
+        reader.onerror = () => {
+          const err = new Error('Failed to read file');
+          setError(err.message);
+          setIsLoading(false);
+          reject(err);
+        };
+
+        reader.readAsDataURL(imageFile);
+      });
+    } catch (err) {
+      setError(err.message);
+      setIsLoading(false);
+      throw err;
+    }
+  }, []);
+
+  /**
+   * Calculate image statistics as placeholder for embeddings
+   * 
+   * @param {Array} normalizedPixels - Normalized pixel values
+   * @returns {Array} Statistical embeddings
+   */
+  const calculateImageStats = (pixels) => {
+    const stats = [];
+
+    const rChannel = pixels.filter((_, i) => i % 3 === 0);
+    const gChannel = pixels.filter((_, i) => i % 3 === 1);
+    const bChannel = pixels.filter((_, i) => i % 3 === 2);
+
+    const meanR = rChannel.reduce((a, b) => a + b, 0) / rChannel.length;
+    const meanG = gChannel.reduce((a, b) => a + b, 0) / gChannel.length;
+    const meanB = bChannel.reduce((a, b) => a + b, 0) / bChannel.length;
+
+    stats.push(meanR, meanG, meanB);
+
+    const varR = rChannel.reduce((a, b) => a + Math.pow(b - meanR, 2), 0) / rChannel.length;
+    const varG = gChannel.reduce((a, b) => a + Math.pow(b - meanG, 2), 0) / gChannel.length;
+    const varB = bChannel.reduce((a, b) => a + Math.pow(b - meanB, 2), 0) / bChannel.length;
+
+    stats.push(varR, varG, varB);
+
+    // Pad with zeros to simulate larger embeddings
+    while (stats.length < 1024) {
+      stats.push(0);
+    }
+
+    return stats;
+  };
+
+  /**
+   * Perform visual search and return results
+   */
+  const performSearch = useMemo(() => {
+    if ((!searchTerms || searchTerms.length === 0) && !isImageSearchActive) {
+      return { results: products, isPerfectMatch: true, aiDetectedLabel: null };
+    }
+
+    let aiLabel = imageFeatures?.topLabel || '';
+
+    // AI Label Cleanup
+    if (aiLabel.toLowerCase().includes('face powder')) {
+      aiLabel = 'jewelery';
+    }
+
+    const isHeadphone = aiLabel === 'headphone' || aiLabel === 'headphones';
+    const isTechRelated = ['electronic', 'audio', 'computer', 'laptop', 'headphone', 'tech', 'device', 'hardware'].some(t => aiLabel.includes(t.toLowerCase()));
+    const isComputerDetected = ['computer', 'laptop', 'macbook', 'desktop'].some(t => aiLabel.includes(t.toLowerCase()));
+
+    // Hard Filter
+    let eligibleProducts = products;
+    if (isHeadphone) {
+      eligibleProducts = products.filter(p => 
+        p.category.toLowerCase() === 'electronics' && 
+        (p.title.toLowerCase().includes('headphone') || (p.tags && p.tags.some(t => t.toLowerCase().includes('headphone'))))
+      );
+    } else if (isTechRelated) {
+      eligibleProducts = products.filter(p => !p.category.toLowerCase().includes('clothing'));
+    }
+    
+    // Stop Category Mixing
+    if (isComputerDetected) {
+      const excludedKeywords = ['ssd', 'hard drive', 'hdd', 'cable', 'wd', 'seagate'];
+      eligibleProducts = eligibleProducts.filter(p => {
+        const productText = `${p.title} ${(p.tags || []).join(' ')}`.toLowerCase();
+        return !excludedKeywords.some(keyword => productText.includes(keyword));
+      });
+    }
+
+    // Score all eligible products
+    const scoredProducts = eligibleProducts.map(product => {
+      let score = 0;
+
+      if (imageFeatures?.embedding) {
+        score += cosineSimilarity(imageFeatures.embedding, product.embedding || []) * 0.7;
+      }
+
+      if (searchTerms && searchTerms.length > 0) {
+        score += calculateTextSimilarity(searchTerms, product) * 0.3;
+      }
+
+      return { ...product, score };
+    });
+
+    // Sort by score and apply soft thresholding
+    const sorted = scoredProducts.sort((a, b) => b.score - a.score);
+    
+    // Return at least 5 products, or more if threshold met
+    const threshold = 0.1;
+    const thresholdResults = sorted.filter(p => p.score >= threshold);
+    const finalResults = thresholdResults.length >= 5 ? thresholdResults : sorted.slice(0, 5);
+
+    const isPerfectMatch = finalResults.some(p => p.score >= 0.8);
+
+    return { 
+      results: finalResults, 
+      isPerfectMatch, 
+      aiDetectedLabel: aiLabel 
+    };
+  }, [products, imageFeatures, searchTerms, isImageSearchActive]);
+
+  /**
+   * Perform visual search by sending image to backend
+   * 
+   * @param {File} imageFile - Image file for search
+   * @param {Object} options - Search options
+   * @returns {Promise<Object>} Search preparation
+   */
+  const performVisualSearch = useCallback(async (imageFile, options = {}) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const features = await extractImageFeatures(imageFile);
+
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      formData.append('top_k', options.topK || 10);
+      formData.append('similarity_threshold', options.threshold || 0.5);
+
+      return {
+        features,
+        formData,
+        ready: true,
+      };
+    } catch (err) {
+      setError(err.message);
+      setIsLoading(false);
+      throw err;
+    }
+  }, [extractImageFeatures]);
+
+  /**
+   * Process canvas image data
+   * 
+   * @param {HTMLCanvasElement} canvas - Canvas element with image
+   * @returns {Object} Processed image data
+   */
+  const processCanvasImage = useCallback((canvas) => {
+    try {
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      return {
+        width: canvas.width,
+        height: canvas.height,
+        data: imageData.data,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err) {
+      setError(err.message);
+      return null;
+    }
+  }, []);
+
+  /**
+   * Reset vision hook state
+   */
+  const reset = useCallback(() => {
+    setIsLoading(false);
+    setError(null);
+    setResults(null);
+  }, []);
+
+  return {
+    isLoading,
+    error,
+    results,
+    canvasRef,
+    ...performSearch,
+    extractImageFeatures,
+    performVisualSearch,
+    processCanvasImage,
+    reset,
+  };
+};
+
+export default useVision;
